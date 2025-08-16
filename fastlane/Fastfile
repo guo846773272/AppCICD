@@ -1,0 +1,149 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Description of what the lane does"
+  lane :custom_lane do
+    # add actions here: https://docs.fastlane.tools/actions
+  end
+
+  lane :archive do |options|
+    configuration = options[:configuration] || "Debug"
+    export_method = options[:export_method] || "development"
+
+    # 使用 xcodeproj_info action 动态获取项目信息
+    project_info = xcodeproj_info(
+      project_path: ".",
+    )
+
+    # 使用 project_config_info action 加载配置文件
+    config_info = project_config_info
+
+    # 从获取的信息中提取 workspace 和 scheme
+    workspace = project_info[:workspace_path]
+    scheme = project_info[:default_scheme]
+
+    UI.message("Using workspace: #{workspace}")
+    UI.message("Using scheme: #{scheme}")
+    UI.message("PGY API Key loaded: #{config_info[:PGY_API_KEY]}")
+    # next
+    gym(
+      workspace: workspace,
+      scheme: scheme,
+      clean: true,
+      configuration: "Debug",
+      export_method: "development",
+      include_bitcode: false,
+      include_symbols: true,
+      # 允许访问钥匙串 已验证
+      export_xcargs: "-allowProvisioningUpdates",
+      xcargs: "DEBUG_INFORMATION_FORMAT='dwarf-with-dsym'",
+      #隐藏所有不必要的信息 已验证
+      silent: true,
+      archive_path: "./build/",
+      output_directory: "./build/packages/#{configuration}-#{export_method}/",
+      output_name: "#{scheme}.ipa",
+      xcodebuild_formatter: "xcbeautify --quieter",
+      disable_xcpretty: true,  # 禁用 xcpretty（类似 xcbeautify）
+      suppress_xcode_output: false, # 确保原始 xcodebuild 日志可见
+      #指定描述文件 也可用match 已验证
+      #export_options: export_options
+    )
+    puts lane_context
+    pgy_upload_lane
+  end
+
+  lane :pgy_upload_lane do
+    # 使用 project_config_info action 加载配置文件
+    config_info = project_config_info
+    PGY_API_KEY = config_info[:PGY_API_KEY]
+
+    ipa_package_path = lane_context[:IPA_OUTPUT_PATH]
+    
+    # 获取当前 Git 提交的唯一 UUID (commit hash)
+    x_changelog = `git rev-parse HEAD`.strip
+    
+    # 获取当前分支或标签的最近一次提交信息
+    current_branch = `git rev-parse --abbrev-ref HEAD`.strip
+    if current_branch == "HEAD"
+      # 如果当前是 detached HEAD，尝试获取标签
+      current_branch = `git describe --tags --exact-match 2>/dev/null`.strip
+      if current_branch.empty?
+        current_branch = "detached-HEAD"
+      end
+    end
+    
+    git_commit_msg = `git log -1 --pretty=format:"%s" #{current_branch}`.strip
+    
+    UI.message("Git commit hash: #{x_changelog}")
+    UI.message("Current branch/tag: #{current_branch}")
+    UI.message("Git commit message: #{git_commit_msg}")
+
+    pgy_upload(
+      _api_key: PGY_API_KEY,
+      package_file_path: ipa_package_path,
+      buildType: "#{lane_context[:PLATFORM_NAME]}",
+      buildInstallType: "1",
+      buildUpdateDescription: "#{git_commit_msg}-#{x_changelog}",
+    )
+    build_key = Fastlane::Actions::PgyUploadAction.return_value
+    UI.success(build_key)
+
+    # 创建 options 哈希来传递参数
+    options = { build_key: build_key }
+    pgy_query_upload_status(options)
+  end
+
+  lane :pgy_query_upload_status do |options|
+    # 使用 project_config_info action 加载配置文件
+    config_info = project_config_info
+    PGY_API_KEY = config_info[:PGY_API_KEY]
+
+    try_count = options[:try_count] || 0
+    if try_count == 10
+      UI.user_error!("查询失败-次数#{try_count}")
+      next
+    end
+    build_key = options[:build_key]
+    pgy_query(
+      _api_key: PGY_API_KEY,
+      build_key: build_key,
+    )
+    get_build_info_command_result_json = Fastlane::Actions::PgyQueryAction.return_value
+    puts "get_build_info_command_result_json"
+    puts get_build_info_command_result_json
+
+    code = get_build_info_command_result_json["code"]
+
+    if code != 0
+      cur_try_count = try_count + 1
+      puts cur_try_count
+      sleep(10)
+      puts "10秒后查询"
+      options[:try_count] = cur_try_count
+      pgy_query_upload_status(options)
+      next
+    end
+
+    data = get_build_info_command_result_json["data"]
+    buildKey = data["buildKey"]
+
+    package_download_url = "https://www.pgyer.com/#{buildKey}"
+    puts "package_download_url"
+    puts package_download_url
+  end
+end
