@@ -146,4 +146,92 @@ platform :ios do
     puts "package_download_url"
     puts package_download_url
   end
+
+
+  lane :apple_store_connect_init do |options|
+
+    config_info = project_config_info
+    UI.message("key_id Key loaded: #{config_info[:key_id]}")
+    UI.message("issuer_id Key loaded: #{config_info[:issuer_id]}")
+
+    api_key = app_store_connect_api_key(
+      key_id: config_info[:key_id],
+      issuer_id: config_info[:issuer_id],
+      key_filepath: "./fastlane/AuthKey_493GC2HRH5.p8",
+      duration: 1200, # optional (maximum 1200)
+      in_house: false, # optional but may be required if using match/sigh
+    )
+    lane_context[:api_key] = api_key
+
+    puts "api_key: "
+    puts api_key
+  end
+
+  lane :update_devices do |options|
+
+    devices_file = options[:devices_file] || "./fastlane/devices.txt"
+
+    apple_store_connect_init
+
+    config_info = project_config_info
+    UI.message("username Key loaded: #{config_info[:username]}")
+    UI.message("team_id Key loaded: #{config_info[:team_id]}")
+    UI.message("team_name Key loaded: #{config_info[:team_name]}")
+
+    register_devices(
+      api_key: lane_context[:api_key],
+      username: config_info[:username],
+      team_id: config_info[:team_id],
+      team_name: config_info[:team_name],
+      devices_file: devices_file,
+    )
+
+
+    update_profiles(get_api_key: false)
+  end
+
+  lane :update_profiles do |options|
+
+    eval_apple_store_connect_init = options[:get_api_key] || true
+
+    if eval_apple_store_connect_init
+      apple_store_connect_init
+    end
+    
+    config_info = project_config_info
+    UI.message("username Key loaded: #{config_info[:username]}")
+    UI.message("team_id Key loaded: #{config_info[:team_id]}")
+    UI.message("team_name Key loaded: #{config_info[:team_name]}")
+    UI.message("team_name Key loaded: #{config_info[:team_name]}")
+
+    # 使用 xcodeproj_info action 动态获取项目信息
+    project_info = xcodeproj_info(
+      project_path: ".",
+    )
+    # 从获取的信息中提取 workspace 和 scheme
+    bundle_identifier = project_info[:bundle_identifier]
+    UI.message("bundle_identifier: #{bundle_identifier}")
+
+    cur_filename = bundle_identifier + ".mobileprovision"
+
+    cur_time = Time.new
+    profiles_dir_path = "./fastlane/profiles/#{cur_time.strftime("%Y-%m-%d-%H-%M-%S")}"
+
+    get_provisioning_profile(
+      api_key: lane_context[:api_key],
+      username: config_info[:username],
+      team_id: config_info[:team_id],
+      team_name: config_info[:team_name],
+      app_identifier: bundle_identifier,
+      development: true,
+      force: true,
+      filename: cur_filename,
+      output_path: profiles_dir_path
+    )
+    
+    cur_profile_path = "#{profiles_dir_path}/#{cur_filename}"
+    install_provisioning_profile(path: cur_profile_path)
+
+  end
+  
 end
