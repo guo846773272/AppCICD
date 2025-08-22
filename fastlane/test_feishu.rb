@@ -33,14 +33,14 @@ def test_feishu_notification
     
     # 获取项目信息
     project_name = Dir.pwd.split('/').last
-    current_branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
-    current_branch = current_branch.empty? ? "未知分支" : current_branch
+    current_branch_or_tag = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
+    current_branch_or_tag = current_branch_or_tag.empty? ? "未知分支" : current_branch_or_tag
     last_commit_message = `git log -1 --pretty=format:"%s (%an)" 2>/dev/null`.strip
     last_commit_message = last_commit_message.empty? ? "无提交信息" : last_commit_message
     
     puts "项目信息:"
     puts "  项目名称: #{project_name}"
-    puts "  当前分支: #{current_branch}"
+    puts "  当前分支: #{current_branch_or_tag}"
     puts "  最近提交: #{last_commit_message}"
     puts ""
     
@@ -69,7 +69,7 @@ def test_feishu_notification
                 },
                 {
                   "tag" => "text",
-                  "text" => current_branch
+                  "text" => current_branch_or_tag
                 }
               ],
               [

@@ -25,13 +25,14 @@ platform :ios do
 
     # 使用 project_config_info action 加载配置文件
     config_info = project_config_info
+    git_info_result = git_info
 
     lane_context[:configuration] = options[:configuration] || "Debug"
     lane_context[:export_method] = options[:export_method] || "development"
     
     lane_context[:feishu_robot_webhook_url] = options[:feishu_robot_webhook_url] || config_info[:feishu_robot_webhook_url]
     lane_context[:PGY_API_KEY] = options[:PGY_API_KEY] || config_info[:PGY_API_KEY]
-    
+    lane_context[:branch_or_tag] = options[:branch_or_tag] || git_info_result[:current_branch_or_tag]
 
     # 使用 xcodeproj_info action 动态获取项目信息
     project_info = xcodeproj_info(
@@ -79,7 +80,7 @@ platform :ios do
     ipa_package_path = lane_context[:IPA_OUTPUT_PATH]
     
     git_info_result = git_info
-    buildUpdateDescription = "#{git_info_result[:current_branch_or_tag]}-#{git_info_result[:last_commit_message]}-#{git_info_result[:last_commit_hash]}"
+    buildUpdateDescription = "#{lane_context[:branch_or_tag]}-#{git_info_result[:last_commit_message]}-#{git_info_result[:last_commit_hash]}"
 
     pgy_upload(
       _api_key: lane_context[:PGY_API_KEY],
@@ -134,13 +135,13 @@ platform :ios do
     puts package_download_url
 
     git_info_result = git_info
-    buildUpdateDescription = "#{git_info_result[:current_branch_or_tag]}-#{git_info_result[:last_commit_hash]}-#{git_info_result[:last_commit_message]}"
+    buildUpdateDescription = "#{lane_context[:branch_or_tag]}-#{git_info_result[:last_commit_hash]}-#{git_info_result[:last_commit_message]}"
     
     # 发送飞书机器人通知
     feishu_robot_notification(
       feishu_robot_webhook_url: lane_context[:feishu_robot_webhook_url],
       display_name: lane_context[:XCODEPROJ_DISPLAY_NAME] || lane_context[:XCODEPROJ_DEFAULT_SCHEME],
-      current_branch: git_info_result[:current_branch_or_tag],
+      current_branch_or_tag: lane_context[:branch_or_tag],
       last_commit_message: git_info_result[:last_commit_message],
       last_commit_hash: git_info_result[:last_commit_hash],
       configuration: lane_context[:configuration] || "Debug",

@@ -18,7 +18,7 @@ module Fastlane
         
         # 获取项目信息（只获取传入的参数，不自动获取）
         display_name = params[:display_name]
-        current_branch = params[:current_branch]
+        current_branch_or_tag = params[:current_branch_or_tag]
         last_commit_message = params[:last_commit_message]
         last_commit_hash = params[:last_commit_hash]
         configuration = params[:configuration] || "Debug"
@@ -28,7 +28,7 @@ module Fastlane
         # 构建富文本消息
         message = build_rich_text_message(
           display_name: display_name,
-          current_branch: current_branch,
+          current_branch_or_tag: current_branch_or_tag,
           last_commit_message: last_commit_message,
           last_commit_hash: last_commit_hash,
           configuration: configuration,
@@ -65,15 +65,15 @@ module Fastlane
           ]
         end
         
-        if params[:current_branch]
+        if params[:current_branch_or_tag]
           content << [
             {
               "tag" => "text",
-              "text" => "分支标签: "
+              "text" => "branch or tag: "
             },
             {
               "tag" => "text",
-              "text" => params[:current_branch]
+              "text" => params[:current_branch_or_tag]
             }
           ]
         end
@@ -146,7 +146,7 @@ module Fastlane
           message["content"]["post"]["zh_cn"]["content"] << [
             {
               "tag" => "text",
-              "text" => "下载地址: "
+              "text" => "download: "
             },
             {
               "tag" => "a",
@@ -207,9 +207,9 @@ module Fastlane
                                        description: '项目显示名称（可选）',
                                        optional: true,
                                        default_value: nil),
-          FastlaneCore::ConfigItem.new(key: :current_branch,
-                                       env_name: 'FL_FEISHU_ROBOT_NOTIFICATION_CURRENT_BRANCH',
-                                       description: '分支标签或标签（可选）',
+          FastlaneCore::ConfigItem.new(key: :current_branch_or_tag,
+                                       env_name: 'FL_FEISHU_ROBOT_NOTIFICATION_CURRENT_BRANCH_OR_TAG',
+                                       description: '分支或标签（可选）',
                                        optional: true,
                                        default_value: nil),
           FastlaneCore::ConfigItem.new(key: :last_commit_message,
