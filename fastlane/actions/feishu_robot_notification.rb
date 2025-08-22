@@ -82,7 +82,7 @@ module Fastlane
           content << [
             {
               "tag" => "text",
-              "text" => "最近提交: "
+              "text" => "commit message: "
             },
             {
               "tag" => "text",
