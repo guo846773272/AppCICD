@@ -22,16 +22,21 @@ platform :ios do
   end
 
   lane :archive do |options|
-    configuration = options[:configuration] || "Debug"
-    export_method = options[:export_method] || "development"
+
+    # 使用 project_config_info action 加载配置文件
+    config_info = project_config_info
+
+    lane_context[:configuration] = options[:configuration] || "Debug"
+    lane_context[:export_method] = options[:export_method] || "development"
+    
+    lane_context[:feishu_robot_webhook_url] = options[:feishu_robot_webhook_url] || config_info[:feishu_robot_webhook_url]
+    lane_context[:PGY_API_KEY] = options[:PGY_API_KEY] || config_info[:PGY_API_KEY]
+    
 
     # 使用 xcodeproj_info action 动态获取项目信息
     project_info = xcodeproj_info(
       project_path: ".",
     )
-
-    # 使用 project_config_info action 加载配置文件
-    config_info = project_config_info
 
     # 从获取的信息中提取 workspace 和 scheme
     workspace = project_info[:workspace_path]
@@ -39,14 +44,14 @@ platform :ios do
 
     UI.message("Using workspace: #{workspace}")
     UI.message("Using scheme: #{scheme}")
-    UI.message("PGY API Key loaded: #{config_info[:PGY_API_KEY]}")
+    UI.message("PGY API Key loaded: #{lane_context[:PGY_API_KEY]}")
     # next
     gym(
       workspace: workspace,
       scheme: scheme,
       clean: true,
-      configuration: "Debug",
-      export_method: "development",
+      configuration: lane_context[:configuration],
+      export_method: lane_context[:export_method],
       include_bitcode: false,
       include_symbols: true,
       # 允许访问钥匙串 已验证
@@ -55,7 +60,7 @@ platform :ios do
       #隐藏所有不必要的信息 已验证
       silent: true,
       archive_path: "./build/",
-      output_directory: "./build/packages/#{configuration}-#{export_method}/",
+      output_directory: "./build/packages/#{lane_context[:configuration]}-#{lane_context[:export_method]}/",
       output_name: "#{scheme}.ipa",
       xcodebuild_formatter: "xcbeautify --quieter",
       disable_xcpretty: true,  # 禁用 xcpretty（类似 xcbeautify）
@@ -70,35 +75,18 @@ platform :ios do
   lane :pgy_upload_lane do
     # 使用 project_config_info action 加载配置文件
     config_info = project_config_info
-    PGY_API_KEY = config_info[:PGY_API_KEY]
 
     ipa_package_path = lane_context[:IPA_OUTPUT_PATH]
     
-    # 获取当前 Git 提交的唯一 UUID (commit hash)
-    x_changelog = `git rev-parse HEAD`.strip
-    
-    # 获取当前分支或标签的最近一次提交信息
-    current_branch = `git rev-parse --abbrev-ref HEAD`.strip
-    if current_branch == "HEAD"
-      # 如果当前是 detached HEAD，尝试获取标签
-      current_branch = `git describe --tags --exact-match 2>/dev/null`.strip
-      if current_branch.empty?
-        current_branch = "detached-HEAD"
-      end
-    end
-    
-    git_commit_msg = `git log -1 --pretty=format:"%s" #{current_branch}`.strip
-    
-    UI.message("Git commit hash: #{x_changelog}")
-    UI.message("Current branch/tag: #{current_branch}")
-    UI.message("Git commit message: #{git_commit_msg}")
+    git_info_result = git_info
+    buildUpdateDescription = "#{git_info_result[:current_branch_or_tag]}-#{git_info_result[:last_commit_message]}-#{git_info_result[:last_commit_hash]}"
 
     pgy_upload(
-      _api_key: PGY_API_KEY,
+      _api_key: lane_context[:PGY_API_KEY],
       package_file_path: ipa_package_path,
       buildType: "#{lane_context[:PLATFORM_NAME]}",
       buildInstallType: "1",
-      buildUpdateDescription: "#{git_commit_msg}-#{x_changelog}",
+      buildUpdateDescription: buildUpdateDescription,
     )
     build_key = Fastlane::Actions::PgyUploadAction.return_value
     UI.success(build_key)
@@ -111,7 +99,6 @@ platform :ios do
   lane :pgy_query_upload_status do |options|
     # 使用 project_config_info action 加载配置文件
     config_info = project_config_info
-    PGY_API_KEY = config_info[:PGY_API_KEY]
 
     try_count = options[:try_count] || 0
     if try_count == 10
@@ -120,7 +107,7 @@ platform :ios do
     end
     build_key = options[:build_key]
     pgy_query(
-      _api_key: PGY_API_KEY,
+      _api_key: lane_context[:PGY_API_KEY],
       build_key: build_key,
     )
     get_build_info_command_result_json = Fastlane::Actions::PgyQueryAction.return_value
@@ -145,6 +132,21 @@ platform :ios do
     package_download_url = "https://www.pgyer.com/#{buildKey}"
     puts "package_download_url"
     puts package_download_url
+
+    git_info_result = git_info
+    buildUpdateDescription = "#{git_info_result[:current_branch_or_tag]}-#{git_info_result[:last_commit_hash]}-#{git_info_result[:last_commit_message]}"
+    
+    # 发送飞书机器人通知
+    feishu_robot_notification(
+      feishu_robot_webhook_url: lane_context[:feishu_robot_webhook_url],
+      display_name: lane_context[:XCODEPROJ_DISPLAY_NAME] || lane_context[:XCODEPROJ_DEFAULT_SCHEME],
+      current_branch: git_info_result[:current_branch_or_tag],
+      last_commit_message: git_info_result[:last_commit_message],
+      last_commit_hash: git_info_result[:last_commit_hash],
+      configuration: lane_context[:configuration] || "Debug",
+      export_method: lane_context[:export_method] || "development",
+      package_download_url: package_download_url
+    )
   end
 
 
@@ -232,6 +234,35 @@ platform :ios do
     cur_profile_path = "#{profiles_dir_path}/#{cur_filename}"
     install_provisioning_profile(path: cur_profile_path)
 
+  end
+  
+  # 测试飞书机器人通知的lane
+  lane :test_feishu_notification do |options|
+    configuration = options[:configuration] || "Debug"
+    export_method = options[:export_method] || "development"
+    package_download_url = options[:package_download_url] || "https://example.com/test.ipa"
+    
+    UI.message("测试飞书机器人通知...")
+    
+    # 获取项目信息
+    project_info = xcodeproj_info(
+      project_path: ".",
+    )
+    
+    project_name = project_info[:display_name] || project_info[:default_scheme]
+    UI.message("项目名称: #{project_name}")
+    UI.message("配置: #{configuration}")
+    UI.message("导出方式: #{export_method}")
+    UI.message("下载地址: #{package_download_url}")
+    
+    feishu_robot_notification(
+      project_name: project_name,
+      configuration: configuration,
+      export_method: export_method,
+      package_download_url: package_download_url
+    )
+    
+    UI.success("飞书机器人通知测试完成！")
   end
   
 end

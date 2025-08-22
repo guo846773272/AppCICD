@@ -5,67 +5,82 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="00: default_platform" time="0.000401">
+      <testcase classname="fastlane.lanes" name="00: default_platform" time="0.000172">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="01: xcodeproj_info" time="0.023818">
+      <testcase classname="fastlane.lanes" name="01: project_config_info" time="0.000406">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="02: project_config_info" time="0.000216">
+      <testcase classname="fastlane.lanes" name="02: xcodeproj_info" time="0.016351">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="03: gym" time="116.852689">
+      <testcase classname="fastlane.lanes" name="03: gym" time="16.514753">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="04: Switch to ios pgy_upload_lane lane" time="8.7e-05">
+      <testcase classname="fastlane.lanes" name="04: Switch to ios pgy_upload_lane lane" time="0.000113">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="05: project_config_info" time="0.000673">
+      <testcase classname="fastlane.lanes" name="05: project_config_info" time="0.000588">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="06: pgy_upload" time="7.467475">
+      <testcase classname="fastlane.lanes" name="06: git_info" time="0.049314">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="07: Switch to ios pgy_query_upload_status lane" time="0.000203">
+      <testcase classname="fastlane.lanes" name="07: pgy_upload" time="0.742611">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="08: project_config_info" time="0.001293">
+      <testcase classname="fastlane.lanes" name="08: Switch to ios pgy_query_upload_status lane" time="0.000432">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="09: pgy_query" time="0.157852">
+      <testcase classname="fastlane.lanes" name="09: project_config_info" time="0.001395">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="10: Switch to ios pgy_query_upload_status lane" time="0.00022">
+      <testcase classname="fastlane.lanes" name="10: pgy_query" time="0.154922">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="11: project_config_info" time="0.000927">
+      <testcase classname="fastlane.lanes" name="11: Switch to ios pgy_query_upload_status lane" time="0.000271">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="12: pgy_query" time="0.12609">
+      <testcase classname="fastlane.lanes" name="12: project_config_info" time="0.001049">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="13: pgy_query" time="0.172044">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="14: git_info" time="0.08953">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="15: feishu_robot_notification" time="0.475105">
         
       </testcase>
     

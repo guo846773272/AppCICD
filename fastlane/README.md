@@ -47,6 +47,38 @@ Description of what the lane does
 
 
 
+### ios apple_store_connect_init
+
+```sh
+[bundle exec] fastlane ios apple_store_connect_init
+```
+
+
+
+### ios update_devices
+
+```sh
+[bundle exec] fastlane ios update_devices
+```
+
+
+
+### ios update_profiles
+
+```sh
+[bundle exec] fastlane ios update_profiles
+```
+
+
+
+### ios test_feishu_notification
+
+```sh
+[bundle exec] fastlane ios test_feishu_notification
+```
+
+
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.

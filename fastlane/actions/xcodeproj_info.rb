@@ -10,6 +10,7 @@ module Fastlane
       XCODEPROJ_BUNDLE_IDENTIFIER = :XCODEPROJ_BUNDLE_IDENTIFIER
       XCODEPROJ_VERSION = :XCODEPROJ_VERSION
       XCODEPROJ_BUILD_NUMBER = :XCODEPROJ_BUILD_NUMBER
+      XCODEPROJ_DISPLAY_NAME = :XCODEPROJ_DISPLAY_NAME
     end
 
     class XcodeprojInfoAction < Action
@@ -59,6 +60,7 @@ module Fastlane
         bundle_identifier = nil
         version = nil
         build_number = nil
+        display_name = nil
         
         if main_target
           build_config = main_target.build_configurations.first
@@ -66,6 +68,7 @@ module Fastlane
             bundle_identifier = build_config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"]
             version = build_config.build_settings["MARKETING_VERSION"]
             build_number = build_config.build_settings["CURRENT_PROJECT_VERSION"]
+            display_name = build_config.build_settings["INFOPLIST_KEY_CFBundleDisplayName"]
           end
         end
         
@@ -79,6 +82,7 @@ module Fastlane
         Actions.lane_context[SharedValues::XCODEPROJ_BUNDLE_IDENTIFIER] = bundle_identifier
         Actions.lane_context[SharedValues::XCODEPROJ_VERSION] = version
         Actions.lane_context[SharedValues::XCODEPROJ_BUILD_NUMBER] = build_number
+        Actions.lane_context[SharedValues::XCODEPROJ_DISPLAY_NAME] = display_name
         
         # 返回结果
         result = {
@@ -90,7 +94,8 @@ module Fastlane
           targets: targets,
           bundle_identifier: bundle_identifier,
           version: version,
-          build_number: build_number
+          build_number: build_number,
+          display_name: display_name
         }
         
         UI.success("Successfully extracted Xcode project information:")
@@ -103,6 +108,7 @@ module Fastlane
         UI.message("Bundle ID: #{bundle_identifier || 'Not found'}")
         UI.message("Version: #{version || 'Not found'}")
         UI.message("Build Number: #{build_number || 'Not found'}")
+        UI.message("Display Name: #{display_name || 'Not found'}")
         
         return result
       end
@@ -228,7 +234,8 @@ module Fastlane
           ['XCODEPROJ_TARGETS', 'Array of available target names'],
           ['XCODEPROJ_BUNDLE_IDENTIFIER', 'Bundle identifier from the main target'],
           ['XCODEPROJ_VERSION', 'Marketing version from the main target'],
-          ['XCODEPROJ_BUILD_NUMBER', 'Current project version from the main target']
+          ['XCODEPROJ_BUILD_NUMBER', 'Current project version from the main target'],
+          ['XCODEPROJ_DISPLAY_NAME', 'Display name from the main target']
         ]
       end
 
