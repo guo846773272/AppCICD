@@ -27,8 +27,24 @@ platform :ios do
     config_info = project_config_info
     git_info_result = git_info
 
-    lane_context[:configuration] = options[:configuration] || "Debug"
-    lane_context[:export_method] = options[:export_method] || "development"
+    # 根据 configuration_export_method 设置 configuration 和 export_method
+    case options[:configuration_export_method]
+    when "debug_development"
+      lane_context[:configuration] = "Debug"
+      lane_context[:export_method] = "development"
+    when "debug_ad_hoc"
+      lane_context[:configuration] = "Debug"
+      lane_context[:export_method] = "ad-hoc"
+    when "release_ad_hoc"
+      lane_context[:configuration] = "Release"
+      lane_context[:export_method] = "ad-hoc"
+    when "apple_store"
+      lane_context[:configuration] = "Release"
+      lane_context[:export_method] = "apple-store"
+    else
+      lane_context[:configuration] = "Debug"
+      lane_context[:export_method] = "development"
+    end
     
     lane_context[:feishu_robot_webhook_url] = options[:feishu_robot_webhook_url] || config_info[:feishu_robot_webhook_url]
     lane_context[:PGY_API_KEY] = options[:PGY_API_KEY] || config_info[:PGY_API_KEY]
@@ -69,22 +85,66 @@ platform :ios do
       #指定描述文件 也可用match 已验证
       #export_options: export_options
     )
-    puts lane_context
-    pgy_upload_lane
+    
+    case options[:configuration_export_method]
+    when "apple_store"
+      deliver_ipa_to_apple_store
+    else
+      pgy_upload_lane
+    end
+  end
+
+  lane :deliver_ipa_to_apple_store do |options|
+    package_file_path = lane_context[:IPA_OUTPUT_PATH]
+    config_info = project_config_info
+    # 使用 xcodeproj_info action 动态获取项目信息
+    project_info = xcodeproj_info(
+      project_path: ".",
+    )
+    # 从获取的信息中提取 workspace 和 scheme
+    bundle_identifier = project_info[:bundle_identifier]
+    deliver(
+      api_key: lane_context[:api_key],
+      ipa: lane_context[:IPA_OUTPUT_PATH],
+      username: config_info[:username],
+      team_id: config_info[:team_id],
+      team_name: config_info[:team_name],
+      app_identifier: bundle_identifier,
+      automatic_release: false, # 不自动发布
+      force: true, # 跳过HTML报告验证
+      skip_metadata: true, # 跳过元数据更新
+      skip_screenshots: true, # 跳过截图更新
+      phased_release: true, # 启用分阶段发布
+      run_precheck_before_submit: false, # 不运行提交前检查
+      precheck_include_in_app_purchases: false, # 不检查内购
+      reject_if_possible: true, # 如果可能则拒绝之前的构建
+      submit_for_review: false, # 不自动提交审核
+      submission_information: { # Extra information for the submission (e.g. compliance specifications, IDFA settings)
+        # 前缀content_rights => 问你是否包含，显示，访问第三方内容(这项我没在我提交过程中找到)，没有特殊情况也都选false就可以
+        content_rights_contains_third_party_content: "false",
+        content_rights_has_rights: "false",
+        # 前缀add_id_info idfa相关
+        add_id_info_limits_tracking: true, # 不限制跟踪（因为本来就不跟踪）
+        add_id_info_serves_ads: false, # 不在App内投放广告
+        add_id_info_tracks_action: true, # 不跟踪来自广告的操作
+        add_id_info_tracks_install: true, # 不跟踪来自特定广告的安装
+        add_id_info_uses_idfa: true, # 不使用广告标识符
+      },
+    )
   end
 
   lane :pgy_upload_lane do
     # 使用 project_config_info action 加载配置文件
     config_info = project_config_info
 
-    ipa_package_path = lane_context[:IPA_OUTPUT_PATH]
+    package_file_path = lane_context[:IPA_OUTPUT_PATH]
     
     git_info_result = git_info
     buildUpdateDescription = "#{lane_context[:branch_or_tag]}-#{git_info_result[:last_commit_message]}-#{git_info_result[:last_commit_hash]}"
 
     pgy_upload(
       _api_key: lane_context[:PGY_API_KEY],
-      package_file_path: ipa_package_path,
+      package_file_path: package_file_path,
       buildType: "#{lane_context[:PLATFORM_NAME]}",
       buildInstallType: "1",
       buildUpdateDescription: buildUpdateDescription,
@@ -233,6 +293,8 @@ platform :ios do
     )
     
     cur_profile_path = "#{profiles_dir_path}/#{cur_filename}"
+    puts "cur_profile_path:"
+    puts cur_profile_path
     install_provisioning_profile(path: cur_profile_path)
 
   end

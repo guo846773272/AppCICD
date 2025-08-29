@@ -31,6 +31,14 @@ Description of what the lane does
 
 
 
+### ios deliver_ipa_to_apple_store
+
+```sh
+[bundle exec] fastlane ios deliver_ipa_to_apple_store
+```
+
+
+
 ### ios pgy_upload_lane
 
 ```sh
