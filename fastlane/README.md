@@ -31,6 +31,14 @@ Description of what the lane does
 
 
 
+### ios dsym_decompress_upload
+
+```sh
+[bundle exec] fastlane ios dsym_decompress_upload
+```
+
+
+
 ### ios deliver_ipa_to_apple_store
 
 ```sh

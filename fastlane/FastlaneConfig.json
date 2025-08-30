@@ -5,5 +5,17 @@
     "username": "guomengyang@shwoody.com",
     "team_id": "P5NT8CAA8B",
     "team_name": "Shanghai Detian Yichi Technology Co., Ltd.",
-    "feishu_robot_webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/da45580f-57e3-4ce2-ad7f-5db9e825c75b"
+    "feishu_robot_webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/da45580f-57e3-4ce2-ad7f-5db9e825c75b",
+    "AppCICD": {
+        "bugly": {
+            "appid": "feb7e53edb",
+            "appkey": "53c174e5-53c9-45ff-ba17-450a4f5f98f1"
+        }
+    },
+    "HuKeDa": {
+        "bugly": {
+            "appid": "feb7e53edb",
+            "appkey": "53c174e5-53c9-45ff-ba17-450a4f5f98f1"
+        }
+    }
 }

@@ -224,6 +224,7 @@ PLATFORMS
 
 DEPENDENCIES
   fastlane
+  rubyzip
   xcodeproj
 
 BUNDLED WITH

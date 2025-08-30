@@ -3,6 +3,7 @@ module Fastlane
     module SharedValues
       PROJECT_CONFIG_PGY_API_KEY = :PROJECT_CONFIG_PGY_API_KEY
       PROJECT_CONFIG_ALL_VALUES = :PROJECT_CONFIG_ALL_VALUES
+      PROJECT_CONFIG_SCHEME_CONFIG = :PROJECT_CONFIG_SCHEME_CONFIG
     end
 
     class ProjectConfigInfoAction < Action
@@ -22,11 +23,8 @@ module Fastlane
           config_content = File.read(config_path)
           config_data = JSON.parse(config_content)
           
-          # 将 string 键转换为 symbol 键
-          config_data_symbols = {}
-          config_data.each do |key, value|
-            config_data_symbols[key.to_sym] = value
-          end
+          # 递归将 string 键转换为 symbol 键
+          config_data_symbols = convert_keys_to_symbols(config_data)
           
           UI.success("Successfully loaded FastlaneConfig.json from: #{config_path}")
           
@@ -36,15 +34,10 @@ module Fastlane
           
           # 输出配置信息
           UI.message("Configuration loaded:")
-          config_data.each do |key, value|
-            # 对于敏感信息（如 API Key），只显示部分内容
-            if key.include?("API_KEY") || key.include?("SECRET") || key.include?("TOKEN")
-              masked_value = value.to_s.length > 8 ? "#{value.to_s[0..3]}...#{value.to_s[-4..-1]}" : "***"
-              UI.message("  #{key}: #{masked_value}")
-            else
-              UI.message("  #{key}: #{value}")
-            end
-          end
+          print_config_info(config_data_symbols)
+          
+          # 输出可用的scheme列表
+          print_available_schemes(config_data_symbols)
           
           return config_data_symbols
           
@@ -54,17 +47,78 @@ module Fastlane
           UI.user_error!("Failed to read FastlaneConfig.json: #{e.message}")
         end
       end
+      
+      private
+      
+      # 递归将哈希表中的string键转换为symbol键
+      def self.convert_keys_to_symbols(obj)
+        case obj
+        when Hash
+          result = {}
+          obj.each do |key, value|
+            result[key.to_sym] = convert_keys_to_symbols(value)
+          end
+          result
+        when Array
+          obj.map { |item| convert_keys_to_symbols(item) }
+        else
+          obj
+        end
+      end
+      
+      # 打印配置信息，处理嵌套结构
+      def self.print_config_info(config_data, prefix = "")
+        config_data.each do |key, value|
+          if value.is_a?(Hash)
+            UI.message("#{prefix}#{key}:")
+            print_config_info(value, prefix + "  ")
+          else
+            # 对于敏感信息（如 API Key），只显示部分内容
+            if key.to_s.include?("API_KEY") || key.to_s.include?("SECRET") || key.to_s.include?("TOKEN") || key.to_s.include?("appkey")
+              masked_value = value.to_s.length > 8 ? "#{value.to_s[0..3]}...#{value.to_s[-4..-1]}" : "***"
+              UI.message("#{prefix}  #{key}: #{masked_value}")
+            else
+              UI.message("#{prefix}  #{key}: #{value}")
+            end
+          end
+        end
+      end
+      
+      # 打印可用的scheme列表
+      def self.print_available_schemes(config_data)
+        schemes = []
+        config_data.each do |key, value|
+          if value.is_a?(Hash) && ![:PGY_API_KEY, :key_id, :issuer_id, :username, :team_id, :team_name, :feishu_robot_webhook_url].include?(key)
+            schemes << key.to_s
+          end
+        end
+        
+        if schemes.any?
+          UI.message("Available schemes: #{schemes.join(', ')}")
+        end
+      end
+      
+      # 获取特定scheme的配置
+      def self.get_scheme_config(config_data, scheme_name)
+        scheme_sym = scheme_name.to_sym
+        if config_data[scheme_sym]
+          Actions.lane_context[SharedValues::PROJECT_CONFIG_SCHEME_CONFIG] = config_data[scheme_sym]
+          return config_data[scheme_sym]
+        else
+          UI.user_error!("Scheme '#{scheme_name}' not found in configuration. Available schemes: #{config_data.keys.select { |k| k.is_a?(Symbol) && ![:PGY_API_KEY, :key_id, :issuer_id, :username, :team_id, :team_name, :feishu_robot_webhook_url].include?(k) }.map(&:to_s).join(', ')}")
+        end
+      end
 
       #####################################################
       # @!group Documentation
       #####################################################
 
       def self.description
-        'Parse and load configuration from FastlaneConfig.json file'
+        'Parse and load configuration from FastlaneConfig.json file with nested structure support'
       end
 
       def self.details
-        'This action reads and parses the FastlaneConfig.json file, making configuration values available as shared values throughout your fastlane lanes. It automatically masks sensitive information like API keys when displaying values.'
+        'This action reads and parses the FastlaneConfig.json file, making configuration values available as shared values throughout your fastlane lanes. It supports nested configuration structures and automatically masks sensitive information like API keys when displaying values. It also provides convenient methods to access scheme-specific configurations.'
       end
 
       def self.available_options
@@ -78,19 +132,25 @@ module Fastlane
                                          if value && !File.exist?(value)
                                            UI.user_error!("Config file not found at path: #{value}")
                                          end
-                                       end)
+                                       end),
+          FastlaneCore::ConfigItem.new(key: :scheme,
+                                       env_name: 'FL_PROJECT_CONFIG_INFO_SCHEME',
+                                       description: 'Specific scheme to extract configuration for',
+                                       optional: true,
+                                       default_value: nil)
         ]
       end
 
       def self.output
         [
           ['PROJECT_CONFIG_PGY_API_KEY', 'PGY API Key from the configuration file'],
-          ['PROJECT_CONFIG_ALL_VALUES', 'All configuration values as a hash']
+          ['PROJECT_CONFIG_ALL_VALUES', 'All configuration values as a hash with nested structure support'],
+          ['PROJECT_CONFIG_SCHEME_CONFIG', 'Configuration for a specific scheme']
         ]
       end
 
       def self.return_value
-        'Hash containing all the configuration values from FastlaneConfig.json'
+        'Hash containing all the configuration values from FastlaneConfig.json with nested structure support'
       end
 
       def self.authors

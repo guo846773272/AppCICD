@@ -85,6 +85,11 @@ platform :ios do
       #指定描述文件 也可用match 已验证
       #export_options: export_options
     )
+
+    puts "lane_context:"
+    puts lane_context
+
+    dsym_decompress_upload
     
     case options[:configuration_export_method]
     when "apple_store"
@@ -92,6 +97,73 @@ platform :ios do
     else
       pgy_upload_lane
     end
+
+
+  end
+
+  lane :dsym_decompress_upload do |options|
+
+    dsym_path = options[:dsym_path]
+
+    # 如果dsym_path取不到数据，则执行解压缩
+    if dsym_path.nil? || dsym_path.empty?
+      UI.message("dsym_path为空，开始解压缩DSYM文件...")
+      
+      decompress_result = decompress(
+        zip_file_path: lane_context[:DSYM_OUTPUT_PATH]
+      )
+      # 使用解压后的路径
+      dsym_path = decompress_result[:output_path]
+      
+      UI.success("解压完成，路径: #{dsym_path}")
+    end
+    
+    # 获取项目信息
+    project_info = xcodeproj_info(
+      project_path: ".",
+    )
+    default_scheme = project_info[:default_scheme]
+    config_info = project_config_info
+    if !config_info.include?(default_scheme.to_sym)
+      puts "#{default_scheme}没有配置Bugly"
+      next
+    end
+    bugly_info = config_info[default_scheme.to_sym][:bugly]
+    puts bugly_info
+    
+    # 执行bugly上传命令
+    UI.message("开始上传DSYM到Bugly...")
+    
+    # 使用确定的jar文件路径
+    jar_path = File.join(Dir.pwd, "bugly", "buglyqq-upload-symbol.jar")
+    
+    # 检查jar文件是否存在
+    unless File.exist?(jar_path)
+      UI.user_error!("找不到jar文件: #{jar_path}")
+    end
+    
+    UI.message("使用jar文件: #{jar_path}")
+    
+    bugly_command = "java -jar \"#{jar_path}\" " +
+                    "-appid #{bugly_info[:appid]} " +
+                    "-appkey #{bugly_info[:appkey]} " +
+                    "-bundleid #{project_info[:bundle_identifier]} " +
+                    "-version #{project_info[:version]} " +
+                    "-buildNo #{project_info[:build_number]} " +
+                    "-platform IOS " +
+                    "-inputSymbol \"#{dsym_path}\""
+    
+    UI.message("执行命令: #{bugly_command}")
+    
+    result = sh(bugly_command)
+    
+    if result
+      UI.success("DSYM上传到Bugly成功！")
+    else
+      UI.user_error!("DSYM上传到Bugly失败！")
+    end
+
+
   end
 
   lane :deliver_ipa_to_apple_store do |options|
@@ -131,6 +203,8 @@ platform :ios do
         add_id_info_uses_idfa: true, # 不使用广告标识符
       },
     )
+
+    send_feishu_robot_notification
   end
 
   lane :pgy_upload_lane do
@@ -193,6 +267,13 @@ platform :ios do
     package_download_url = "https://www.pgyer.com/#{buildKey}"
     puts "package_download_url"
     puts package_download_url
+
+    send_feishu_robot_notification({ package_download_url: package_download_url })
+  end
+
+  lane :send_feishu_robot_notification do |options|
+
+    package_download_url = options[:package_download_url] || ""
 
     git_info_result = git_info
     buildUpdateDescription = "#{lane_context[:branch_or_tag]}-#{git_info_result[:last_commit_hash]}-#{git_info_result[:last_commit_message]}"
