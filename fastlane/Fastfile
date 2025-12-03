@@ -23,6 +23,22 @@ platform :ios do
 
   lane :archive do |options|
 
+    # 根据参数决定是否更新证书/设备
+    if options[:update_profiles]
+      UI.message("update_profiles 参数为 true，执行更新描述文件流程...")
+      update_profiles(get_api_key: true)
+    end
+
+    devices_file_path = options[:devices_file]
+    if devices_file_path && !devices_file_path.empty?
+      if File.exist?(devices_file_path)
+        UI.message("检测到 devices_file: #{devices_file_path}，执行更新设备流程...")
+        update_devices(devices_file: devices_file_path)
+      else
+        UI.important("devices_file 路径无效，跳过更新设备: #{devices_file_path}")
+      end
+    end
+
     # 使用 project_config_info action 加载配置文件
     config_info = project_config_info
     git_info_result = git_info
@@ -330,8 +346,8 @@ platform :ios do
       devices_file: devices_file,
     )
 
-
-    update_profiles(get_api_key: false)
+    # 注册完设备后要等待Apple审核完成，才可以更新描述文件
+    # update_profiles(get_api_key: false)
   end
 
   lane :update_profiles do |options|
